@@ -1,5 +1,3 @@
-appdata/
-cache/
-downloads/
-movies/
-series/
+.env
+appdata/gluetun/strongvpn.ovpn
+appdata/swag/nginx/site-confs/default

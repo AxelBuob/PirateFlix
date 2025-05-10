@@ -1,104 +1,145 @@
-# PirateFlix 🏴‍☠️
+# PirateFlix
 
-A complete self-hosted Docker environment to automatically download, manage, and stream your movies and TV shows — all in one place. Secure, modular, and easy to deploy.
-
----
-
-## 🧰 Included Services
-
-| Service     | Description |
-|-------------|-------------|
-| **Gluetun** | Secure VPN tunnel (e.g., Mullvad, StrongVPN) |
-| **qBittorrent** | Torrent client with web interface |
-| **Radarr** | Automated movie downloader |
-| **Sonarr** | Automated TV show downloader |
-| **Bazarr** | Subtitles manager and downloader |
-| **Prowlarr** | Indexer manager for Radarr/Sonarr |
-| **Jellyfin** | Media server for local streaming |
-| **SWAG** | Secure Web Application Gateway (HTTPS with DuckDNS) |
-| **DuckDNS** | Dynamic DNS service to update your public IP |
+A personal self-hosted media server stack using Docker Compose. This setup includes torrenting, media organization, and streaming – all running behind a secure VPN and HTTPS via SWAG and DuckDNS.
 
 ---
 
-## 🗂️ Project Structure
+## 📦 Services Included
+
+| Service      | Port | Description                                  |
+|--------------|------|----------------------------------------------|
+| Gluetun      | N/A  | VPN container for traffic routing            |
+| qBittorrent  | 8080 | Torrent client                               |
+| Radarr       | 7878 | Movie downloader/organizer                   |
+| Sonarr       | 8989 | TV Show downloader/organizer                 |
+| Bazarr       | 6767 | Subtitle manager                             |
+| Prowlarr     | 9696 | Indexer manager                              |
+| Jellyfin     | 8096 | Media server                                 |
+| SWAG         | 443/80 | HTTPS reverse proxy and certificate manager |
+| DuckDNS      | N/A  | Dynamic DNS service                          |
+
+---
+
+## 📁 Directory Structure
+
+The root directory should include:
 
 ```
 PirateFlix/
-├── appdata/         # Service configurations (not versioned)
-├── cache/           # Jellyfin cache
-├── downloads/       # Downloaded torrents
-├── movies/          # Movie library
-├── series/          # TV show library
+├── appdata/
+│   ├── gluetun/
+│   │   ├── strongvpn.ovpn
+│   │   └── credentials.txt
+│   ├── swag/
+│   │   └── nginx/
+│   │       └── site-confs/
+│   │           └── default
+├── downloads/
+├── movies/
+├── series/
+├── cache/
 ├── docker-compose.yml
-├── .env             # Sensitive credentials (DO NOT commit)
-├── .env.example     # Template for .env file
+├── .env
+├── .env.example
 └── README.md
 ```
 
 ---
 
-## ⚙️ Requirements
+## 🔐 OpenVPN Setup with Gluetun
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/)
-- A VPN provider with OpenVPN config files
-- A DuckDNS account for public access (optional)
+Place your `.ovpn` config file and credentials in `./appdata/gluetun/`.
 
----
+**Structure**:
+```
+./appdata/gluetun/
+├── strongvpn.ovpn
+└── credentials.txt
+```
 
-## 🚀 Quick Start
+Reference them in your `.env` file:
 
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/your-username/PirateFlix.git
-   cd PirateFlix
-   ```
+```env
+VPN_SERVICE_PROVIDER=custom
+VPN_TYPE=openvpn
+OPENVPN_CUSTOM_CONFIG=/gluetun/strongvpn.ovpn
+OPENVPN_USER=yourusername
+OPENVPN_PASSWORD=yourpassword
+```
 
-2. Copy and edit the environment variables file:
-   ```bash
-   cp .env.example .env
-   nano .env
-   ```
-
-3. Start all services:
-   ```bash
-   docker compose up -d
-   ```
+These environment variables are picked up by the `gluetun` container.
 
 ---
 
-## 🔐 Security Tips
+## 🌐 HTTPS & Reverse Proxy with SWAG
 
-- **Never commit `.env`** — it contains VPN and DuckDNS credentials.
-- The `.env` file is excluded via `.gitignore` for safety.
-- Ensure only necessary ports are exposed (e.g., 443, 80, 8080).
+To serve Jellyfin over HTTPS via SWAG, edit the nginx config at:
+
+```
+./appdata/swag/nginx/site-confs/default
+```
+
+Replace `${DOMAIN}` with your actual DuckDNS domain (e.g. `jellyfin.duckdns.org`):
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+
+    include /config/nginx/ssl.conf;
+
+    location / {
+        proxy_pass http://jellyfin:8096;
+        include /config/nginx/proxy.conf;
+    }
+}
+```
+
+You must also define these variables in your `.env`:
+
+```env
+URL=jellyfin.duckdns.org
+SUBDOMAINS=jellyfin
+VALIDATION=duckdns
+DUCKDNSTOKEN=your_token
+EMAIL=you@example.com
+```
+
+> ⚠️ Don't forget to replace `${DOMAIN}` with your real domain name **before deployment**, or use `envsubst` for dynamic generation.
 
 ---
 
-## 📍 Access URLs
+## 🚀 Running the Stack
 
-| Service    | Default URL |
-|------------|-------------|
-| qBittorrent | http://localhost:8080 |
-| Radarr      | http://localhost:7878 |
-| Sonarr      | http://localhost:8989 |
-| Bazarr      | http://localhost:6767 |
-| Prowlarr    | http://localhost:9696 |
-| Jellyfin    | http://localhost:8096 |
-| SWAG (HTTPS) | https://shlx.duckdns.org |
+Build and start everything:
+
+```bash
+docker compose up -d
+```
 
 ---
 
-## 🧠 Notes
+## 🧪 Test Access
 
-- No GPU required for Jellyfin in this setup (CPU-based transcoding)
-- Port forwarding is no longer supported with Mullvad (may affect torrenting)
-- SWAG uses Let's Encrypt for free SSL certificates via DuckDNS
+- Local access: `http://localhost:8096`
+- External access: `https://${DOMAIN}`
+
+---
+
+## 🙈 .env.example
+
+A `.env.example` is provided for safe sharing of config templates. Never commit `.env` directly.
 
 ---
 
-## 🙋‍♂️ Support
+## ✅ To Do
 
-This is a personal project. For help, open a GitHub issue or visit [r/selfhosted](https://www.reddit.com/r/selfhosted/).
+- Add monitoring stack (Grafana, Prometheus)
+- Add automatic backups
+- Add user access control
 
 ---
+
+## 📜 License
+
+MIT
